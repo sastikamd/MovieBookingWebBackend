@@ -70,7 +70,7 @@ const movieSchema = new mongoose.Schema({
   }
 }, {
   timestamps: true,
-  collection: 'moviesbooking'
+  collection: 'moviebooking'
 });
 
 // Simple indexes
