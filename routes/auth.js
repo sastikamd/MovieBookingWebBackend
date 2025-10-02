@@ -95,7 +95,9 @@ router.post('/login', [
     }
 
     // Check password
-    const isMatch = await user.comparePassword(password);
+    // const isMatch = await user.comparePassword(password);
+    const isMatch = user.password === password;
+
     if (!isMatch) {
       return res.status(400).json({
         success: false,
