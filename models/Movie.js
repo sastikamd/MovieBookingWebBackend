@@ -43,10 +43,9 @@ const movieSchema = new mongoose.Schema({
     }
   },
   poster: {
-    type: String,
-    required: [true, 'Poster URL is required'],
-    match: [/^https?:\/\/.+\.(jpg|jpeg|png|webp)$/i, 'Valid image URL required']
-  },
+  type: String,
+  required: [true, 'Poster URL is required']
+},
   releaseDate: {
     type: Date,
     required: [true, 'Release date is required']
