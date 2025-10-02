@@ -7,10 +7,13 @@ require('dotenv').config();
 
 const app = express();
 
+// CRITICAL: Configure Express to trust proxy headers (REQUIRED for Render deployment)
+app.set('trust proxy', true);
+
 // Security Middleware
 app.use(helmet());
 
-// Rate Limiting
+// Rate Limiting (now works properly with trust proxy)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
@@ -188,6 +191,10 @@ app.get('/api/health', (req, res) => {
       status: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
       name: mongoose.connection.name,
       host: mongoose.connection.host
+    },
+    proxy: {
+      trustProxy: app.get('trust proxy'),
+      xForwardedFor: 'configured for cloud deployment'
     }
   });
 });
@@ -225,7 +232,10 @@ app.get('/api/debug', async (req, res) => {
             pricing: sampleMovie.pricing
           } : 'No movies found'
         },
-        environment: process.env.NODE_ENV || 'development',
+        server: {
+          trustProxy: app.get('trust proxy'),
+          environment: process.env.NODE_ENV || 'development'
+        },
         timestamp: new Date().toISOString()
       }
     });
@@ -245,6 +255,19 @@ app.get('/api/seed', async (req, res) => {
     const User = require('./models/User');
     const Movie = require('./models/Movie');
     const Booking = require('./models/Booking');
+
+    // Check if already seeded
+    const existingMovies = await Movie.countDocuments();
+    if (existingMovies > 0) {
+      return res.json({
+        success: false,
+        message: 'Database already seeded',
+        data: {
+          movies: existingMovies,
+          note: 'Database contains movies. To re-seed, manually clear the database first.'
+        }
+      });
+    }
 
     // Demo users with preferences
     const demoUsers = [
@@ -301,7 +324,7 @@ app.get('/api/seed', async (req, res) => {
       }
     ];
 
-    // Indian blockbuster movies
+    // Indian blockbuster movies with proper URLs
     const movies = [
       {
         title: "RRR",
@@ -565,6 +588,7 @@ const startServer = async () => {
     console.log('• User: john.doe@example.com / password123');
     console.log('');
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`🔒 Trust Proxy: ${app.get('trust proxy') ? 'Enabled' : 'Disabled'}`);
     console.log('✅ Server ready for requests!');
   });
 };
