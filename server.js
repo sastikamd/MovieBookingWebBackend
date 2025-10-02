@@ -37,7 +37,7 @@ app.use('/api/', limiter);
 app.use(cors({
   origin: [
     'http://localhost:3000',
-    'https://moviefnsastika.netlify.app/'
+    'https://moviefnsastika.netlify.app'
   ],
   credentials: true
 }));
