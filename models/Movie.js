@@ -43,9 +43,9 @@ const movieSchema = new mongoose.Schema({
     }
   },
   poster: {
-  type: String,
-  required: [true, 'Poster URL is required']
-},
+    type: String,
+    required: [true, 'Poster URL is required']
+  },
   releaseDate: {
     type: Date,
     required: [true, 'Release date is required']
@@ -69,12 +69,14 @@ const movieSchema = new mongoose.Schema({
     default: 0
   }
 }, {
-  timestamps: true
+  timestamps: true,
+  collection: 'moviesbooking'
 });
 
-// Simple indexes (NO text search to avoid conflicts)
+// Simple indexes
 movieSchema.index({ status: 1 });
 movieSchema.index({ genre: 1 });
 movieSchema.index({ language: 1 });
 
-module.exports = mongoose.model('Movie', movieSchema);
+const Movie = mongoose.model('Movie', movieSchema);
+module.exports = Movie;
