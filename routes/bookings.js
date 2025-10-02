@@ -5,6 +5,30 @@ const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
+const { sendEmail, sendSMS } = require('../utils/notifications');
+
+// After saving new booking:
+const booking = await Booking.create(bookingData);
+
+// Prepare details
+const details = `
+  <p>Your booking is confirmed!</p>
+  <p><strong>Movie:</strong> ${booking.movieTitle}</p>
+  <p><strong>Showtime:</strong> ${booking.showDate} ${booking.showTime}</p>
+  <p><strong>Seats:</strong> ${booking.seats.join(', ')}</p>
+  <p><strong>Amount Paid:</strong> ₹${booking.totalAmount}</p>
+`;
+
+// Send email
+sendEmail(user.email, 'Booking Confirmation', details)
+  .catch(console.error);
+
+// Send SMS
+sendSMS(user.phone, `Your booking for ${booking.movieTitle} on ${booking.showDate} at ${booking.showTime} is confirmed. Seats: ${booking.seats.join(', ')}.`)
+  .catch(console.error);
+
+res.json({ success: true, data: booking });
+
 // @route   POST /api/bookings
 // @desc    Create new booking
 // @access  Private

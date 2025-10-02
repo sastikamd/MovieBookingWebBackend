@@ -2,6 +2,9 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
+// At top of server.js
+require('./utils/scheduler');
+
 // const rateLimit = require('express-rate-limit'); // Commented out for now
 require('dotenv').config();
 
