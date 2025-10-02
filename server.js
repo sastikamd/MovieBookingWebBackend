@@ -2,7 +2,7 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
-const rateLimit = require('express-rate-limit');
+// const rateLimit = require('express-rate-limit'); // Commented out for now
 require('dotenv').config();
 
 const app = express();
@@ -13,13 +13,25 @@ app.set('trust proxy', true);
 // Security Middleware
 app.use(helmet());
 
-// Rate Limiting (now works properly with trust proxy)
+// RATE LIMITING TEMPORARILY DISABLED
+// The rate limiter was causing validation errors with trust proxy
+// and blocking all API responses. Uncomment and configure properly later.
+
+/*
+// Rate Limiting (DISABLED FOR TESTING)
 const limiter = rateLimit({
   windowMs: 15 * 60 * 1000, // 15 minutes
   max: 100, // limit each IP to 100 requests per windowMs
-  message: 'Too many requests from this IP, please try again later.'
+  message: 'Too many requests from this IP, please try again later.',
+  trustProxy: true, // Match app.set('trust proxy', true)
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) => {
+    return req.path === '/api/health' || req.path === '/api';
+  }
 });
 app.use('/api/', limiter);
+*/
 
 // CORS Configuration
 app.use(cors({
@@ -35,6 +47,21 @@ app.use(cors({
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
+// Debug middleware to see what's happening
+app.use('/api', (req, res, next) => {
+  console.log(`🔍 API Request: ${req.method} ${req.originalUrl} - ${new Date().toISOString()}`);
+  
+  // Override res.json to debug responses
+  const originalJson = res.json;
+  res.json = function(data) {
+    console.log(`📤 API Response: ${req.method} ${req.originalUrl} - Status: ${res.statusCode}`);
+    console.log('📊 Response data preview:', JSON.stringify(data).substring(0, 200) + '...');
+    return originalJson.call(this, data);
+  };
+  
+  next();
+});
+
 // API Root - List all available endpoints
 app.get('/api', (req, res) => {
   const baseUrl = `${req.protocol}://${req.get('host')}/api`;
@@ -44,6 +71,8 @@ app.get('/api', (req, res) => {
     message: "Cinema Booking API v1.0.0",
     timestamp: new Date().toISOString(),
     database: mongoose.connection.readyState === 1 ? 'connected' : 'disconnected',
+    rateLimiting: 'disabled-for-testing',
+    trustProxy: app.get('trust proxy'),
     endpoints: {
       health: {
         url: `${baseUrl}/health`,
@@ -88,14 +117,6 @@ app.get('/api', (req, res) => {
           headers: {
             Authorization: "Bearer JWT_TOKEN"
           }
-        },
-        updateProfile: {
-          url: `${baseUrl}/auth/profile`,
-          method: "PUT",
-          description: "Update user profile (requires auth)",
-          headers: {
-            Authorization: "Bearer JWT_TOKEN"
-          }
         }
       },
       movies: {
@@ -133,27 +154,12 @@ app.get('/api', (req, res) => {
           description: "Create new booking (requires auth)",
           headers: {
             Authorization: "Bearer JWT_TOKEN"
-          },
-          body: {
-            movieId: "string",
-            showDate: "string (YYYY-MM-DD)",
-            showTime: "string",
-            seats: "array of objects",
-            theater: "object"
           }
         },
         getUserBookings: {
           url: `${baseUrl}/bookings`,
           method: "GET", 
           description: "Get user bookings (requires auth)",
-          headers: {
-            Authorization: "Bearer JWT_TOKEN"
-          }
-        },
-        getById: {
-          url: `${baseUrl}/bookings/:id`,
-          method: "GET",
-          description: "Get booking by ID (requires auth)",
           headers: {
             Authorization: "Bearer JWT_TOKEN"
           }
@@ -192,9 +198,12 @@ app.get('/api/health', (req, res) => {
       name: mongoose.connection.name,
       host: mongoose.connection.host
     },
-    proxy: {
+    server: {
       trustProxy: app.get('trust proxy'),
-      xForwardedFor: 'configured for cloud deployment'
+      rateLimiting: 'disabled-for-testing',
+      uptime: process.uptime(),
+      memory: process.memoryUsage(),
+      nodeVersion: process.version
     }
   });
 });
@@ -234,6 +243,7 @@ app.get('/api/debug', async (req, res) => {
         },
         server: {
           trustProxy: app.get('trust proxy'),
+          rateLimiting: 'disabled-for-testing',
           environment: process.env.NODE_ENV || 'development'
         },
         timestamp: new Date().toISOString()
@@ -269,7 +279,7 @@ app.get('/api/seed', async (req, res) => {
       });
     }
 
-    // Demo users with preferences
+    // Demo users
     const demoUsers = [
       {
         name: "Admin User",
@@ -277,16 +287,7 @@ app.get('/api/seed', async (req, res) => {
         password: "admin123",
         phone: "9876543210",
         role: "admin",
-        isVerified: true,
-        preferences: {
-          favoriteGenres: ["Action", "Drama"],
-          preferredLanguages: ["Hindi", "English"],
-          location: {
-            city: "Mumbai",
-            state: "Maharashtra",
-            pincode: "400070"
-          }
-        }
+        isVerified: true
       },
       {
         name: "John Doe",
@@ -294,16 +295,7 @@ app.get('/api/seed', async (req, res) => {
         password: "password123", 
         phone: "9876543211",
         role: "user",
-        isVerified: true,
-        preferences: {
-          favoriteGenres: ["Action", "Sci-Fi", "Thriller"],
-          preferredLanguages: ["Hindi", "English"],
-          location: {
-            city: "Mumbai",
-            state: "Maharashtra",
-            pincode: "400070"
-          }
-        }
+        isVerified: true
       },
       {
         name: "Priya Sharma",
@@ -311,20 +303,11 @@ app.get('/api/seed', async (req, res) => {
         password: "password123",
         phone: "9876543212",
         role: "user",
-        isVerified: true,
-        preferences: {
-          favoriteGenres: ["Romance", "Drama", "Comedy"],
-          preferredLanguages: ["Hindi", "Tamil"],
-          location: {
-            city: "Bangalore",
-            state: "Karnataka",
-            pincode: "560029"
-          }
-        }
+        isVerified: true
       }
     ];
 
-    // Indian blockbuster movies with proper URLs
+    // Movies with placeholder images
     const movies = [
       {
         title: "RRR",
@@ -348,7 +331,7 @@ app.get('/api/seed', async (req, res) => {
       },
       {
         title: "K.G.F: Chapter 2",
-        description: "In the blood-soaked Kolar Gold Fields, Rocky's name strikes fear into his foes. While his allies look up to him, the government sees him as a threat to law and order.",
+        description: "In the blood-soaked Kolar Gold Fields, Rocky's name strikes fear into his foes.",
         genre: ["Action", "Crime", "Drama"],
         director: "Prashanth Neel",
         cast: [
@@ -368,13 +351,12 @@ app.get('/api/seed', async (req, res) => {
       },
       {
         title: "Pushpa: The Rise",
-        description: "Violence erupts between red sandalwood smugglers and the police charged with bringing down their organization in the Seshachalam forests of South India.",
+        description: "Violence erupts between red sandalwood smugglers and the police.",
         genre: ["Action", "Crime", "Drama"],
         director: "Sukumar",
         cast: [
           { name: "Allu Arjun", role: "Pushpa Raj" },
-          { name: "Rashmika Mandanna", role: "Srivalli" },
-          { name: "Fahadh Faasil", role: "Bhanwar Singh Shekhawat" }
+          { name: "Rashmika Mandanna", role: "Srivalli" }
         ],
         duration: 179,
         language: ["Telugu", "Hindi", "Tamil"],
@@ -388,13 +370,12 @@ app.get('/api/seed', async (req, res) => {
       },
       {
         title: "Brahmastra Part One: Shiva", 
-        description: "A DJ with superpowers and his ladylove embark on a mission to protect the Brahmastra, a weapon of enormous energy, from dark forces closing in on them.",
+        description: "A DJ with superpowers and his ladylove embark on a mission to protect the Brahmastra.",
         genre: ["Action", "Adventure", "Fantasy"],
         director: "Ayan Mukerji",
         cast: [
           { name: "Ranbir Kapoor", role: "Shiva" },
-          { name: "Alia Bhatt", role: "Isha" },
-          { name: "Amitabh Bachchan", role: "Professor Arvind Chaturvedi" }
+          { name: "Alia Bhatt", role: "Isha" }
         ],
         duration: 167,
         language: ["Hindi", "Telugu", "Tamil"], 
@@ -413,8 +394,7 @@ app.get('/api/seed', async (req, res) => {
         director: "Lokesh Kanagaraj",
         cast: [
           { name: "Kamal Haasan", role: "Agent Vikram" },
-          { name: "Vijay Sethupathi", role: "Santhanam" },
-          { name: "Fahadh Faasil", role: "Amar" }
+          { name: "Vijay Sethupathi", role: "Santhanam" }
         ],
         duration: 174,
         language: ["Tamil", "Hindi", "Telugu"],
@@ -428,13 +408,12 @@ app.get('/api/seed', async (req, res) => {
       },
       {
         title: "Avatar: The Way of Water",
-        description: "Jake Sully lives with his newfound family formed on the extrasolar moon Pandora. Once a familiar threat returns to finish what was previously started, Jake must work with Neytiri.",
+        description: "Jake Sully lives with his newfound family formed on the extrasolar moon Pandora.",
         genre: ["Action", "Adventure", "Sci-Fi"],
         director: "James Cameron",
         cast: [
           { name: "Sam Worthington", role: "Jake Sully" },
-          { name: "Zoe Saldana", role: "Neytiri" },
-          { name: "Sigourney Weaver", role: "Kiri" }
+          { name: "Zoe Saldana", role: "Neytiri" }
         ],
         duration: 192,
         language: ["English", "Hindi"],
@@ -520,7 +499,7 @@ app.use((error, req, res, next) => {
   });
 });
 
-// Enhanced MongoDB Connection with Multiple Fallbacks
+// MongoDB Connection
 const connectDB = async () => {
   try {
     console.log('🔄 Attempting to connect to MongoDB...');
@@ -528,9 +507,9 @@ const connectDB = async () => {
     const connectionOptions = {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 30000, // 30 seconds
-      socketTimeoutMS: 45000, // 45 seconds
-      family: 4 // Use IPv4, skip trying IPv6
+      serverSelectionTimeoutMS: 30000,
+      socketTimeoutMS: 45000,
+      family: 4
     };
 
     const mongoUri = process.env.MONGODB_URI;
@@ -547,16 +526,8 @@ const connectDB = async () => {
     
   } catch (error) {
     console.error('❌ Database connection error:', error.message);
-    console.log('');
-    console.log('🚀 TROUBLESHOOTING STEPS:');
-    console.log('1. Check your internet connection');
-    console.log('2. Verify MONGODB_URI environment variable');
-    console.log('3. Check MongoDB Atlas IP whitelist (allow 0.0.0.0/0)');
-    console.log('4. Ensure database user has proper permissions');
-    console.log('');
     console.log('⚠️ Server will continue running without database...');
     
-    // Don't exit in production, let Render handle restarts
     if (process.env.NODE_ENV !== 'production') {
       process.exit(1);
     }
@@ -589,17 +560,21 @@ const startServer = async () => {
     console.log('');
     console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
     console.log(`🔒 Trust Proxy: ${app.get('trust proxy') ? 'Enabled' : 'Disabled'}`);
+    console.log(`⚡ Rate Limiting: Disabled for testing`);
     console.log('✅ Server ready for requests!');
   });
 };
 
-// Graceful shutdown
+// FIXED: Graceful shutdown handlers (no callback in mongoose.connection.close())
 process.on('SIGTERM', () => {
   console.log('👋 SIGTERM received, shutting down gracefully');
   if (mongoose.connection.readyState === 1) {
-    mongoose.connection.close(() => {
+    mongoose.connection.close().then(() => {
       console.log('📊 Database connection closed');
       process.exit(0);
+    }).catch((error) => {
+      console.error('Error closing database connection:', error);
+      process.exit(1);
     });
   } else {
     process.exit(0);
@@ -609,9 +584,12 @@ process.on('SIGTERM', () => {
 process.on('SIGINT', () => {
   console.log('👋 SIGINT received, shutting down gracefully');
   if (mongoose.connection.readyState === 1) {
-    mongoose.connection.close(() => {
+    mongoose.connection.close().then(() => {
       console.log('📊 Database connection closed');
       process.exit(0);
+    }).catch((error) => {
+      console.error('Error closing database connection:', error);
+      process.exit(1);
     });
   } else {
     process.exit(0);
