@@ -2,6 +2,7 @@ const express = require('express');
 const Booking = require('../models/Booking');
 const Movie = require('../models/Movie');
 const { auth } = require('../middleware/auth');
+const notificationService = require('../services/notificationService');
 
 const router = express.Router();
 
@@ -53,6 +54,18 @@ router.post('/', auth, async (req, res) => {
     });
 
     await booking.save();
+
+    setImmediate(async () => {
+      try {
+        const user = req.user; 
+        console.log('🔔 user:', req.user);
+        const movie = await Movie.findById(movieId);
+        const result = await notificationService.sendBookingNotifications(booking, user, movie);
+        console.log('🔔 Email result:', result.email);
+      } catch (err) {
+        console.error('🔔 Notification error:', err);
+      }
+    });
 
     // Update movie booking count
     await Movie.findByIdAndUpdate(movieId, {
