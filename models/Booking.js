@@ -50,7 +50,9 @@ const bookingSchema = new mongoose.Schema({
   theater: {
     name: String,
     location: String
-  }
+  },
+  paymentIntentId: { type: String, required: false, unique: true },
+
 }, {
   timestamps: true
 });
