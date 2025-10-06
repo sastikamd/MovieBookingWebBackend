@@ -473,6 +473,7 @@ app.get('/api/seed', async (req, res) => {
 app.use('/api/auth', require('./routes/auth'));
 app.use('/api/movies', require('./routes/movies'));
 app.use('/api/bookings', require('./routes/bookings'));
+app.use('/api/payments', require('./routes/payment'));
 
 // Email notification health check
 app.get('/api/notifications/health', async (req, res) => {
