@@ -11,6 +11,13 @@ class NotificationService {
             }
         });
 
+        this.emailTransporter.verify().then(() => {
+            console.log('✅ SMTP transporter is ready');
+        }).catch(err => {
+            console.error('❌ SMTP transporter verification failed:', err.message);
+        });
+
+
         console.log('📧 Email notification service initialized');
     }
 
