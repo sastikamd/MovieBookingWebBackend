@@ -16,7 +16,8 @@ router.post('/', auth, async (req, res) => {
       showDate,
       showTime,
       seats,
-      theater
+      theater,
+      paymentIntentId
     } = req.body;
 
     // Get movie details
@@ -50,7 +51,8 @@ router.post('/', auth, async (req, res) => {
       totalAmount: Math.round(totalAmount),
       theater,
       status: 'confirmed',
-      paymentStatus: 'completed'
+      paymentStatus: 'completed',
+      paymentIntentId 
     });
 
     await booking.save();
