@@ -144,15 +144,20 @@ router.get('/:id', auth, async (req, res) => {
   }
 });
 
+// GET /api/bookings/by-payment-intent/:paymentIntentId
 router.get('/by-payment-intent/:paymentIntentId', async (req, res) => {
   try {
     const booking = await Booking.findOne({ paymentIntentId: req.params.paymentIntentId });
-    if (!booking) return res.status(404).json({ success: false, message: 'Booking not found' });
+    if (!booking) {
+      return res.status(404).json({ success: false, message: 'Booking not found' });
+    }
     res.json({ success: true, data: booking });
   } catch (error) {
+    console.error('Error fetching booking by paymentIntent:', error);
     res.status(500).json({ success: false, message: 'Server error' });
   }
 });
+
 
 
 module.exports = router;
