@@ -2,9 +2,6 @@ const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
 const helmet = require('helmet');
-// At top of server.js
-require('./utils/scheduler');
-
 // const rateLimit = require('express-rate-limit'); // Commented out for now
 require('dotenv').config();
 
@@ -51,13 +48,13 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Debug middleware to see what's happening
 app.use('/api', (req, res, next) => {
-  console.log(`🔍 API Request: ${req.method} ${req.originalUrl} - ${new Date().toISOString()}`);
+  console.log(`ðŸ” API Request: ${req.method} ${req.originalUrl} - ${new Date().toISOString()}`);
   
   // Override res.json to debug responses
   const originalJson = res.json;
   res.json = function(data) {
-    console.log(`📤 API Response: ${req.method} ${req.originalUrl} - Status: ${res.statusCode}`);
-    console.log('📊 Response data preview:', JSON.stringify(data).substring(0, 200) + '...');
+    console.log(`ðŸ“¤ API Response: ${req.method} ${req.originalUrl} - Status: ${res.statusCode}`);
+    console.log('ðŸ“Š Response data preview:', JSON.stringify(data).substring(0, 200) + '...');
     return originalJson.call(this, data);
   };
   
@@ -262,7 +259,7 @@ app.get('/api/debug', async (req, res) => {
 // Seed endpoint to populate database
 app.get('/api/seed', async (req, res) => {
   try {
-    console.log('🎬 Starting production database seeding...');
+    console.log('ðŸŽ¬ Starting production database seeding...');
     
     const User = require('./models/User');
     const Movie = require('./models/Movie');
@@ -430,20 +427,20 @@ app.get('/api/seed', async (req, res) => {
     ];
 
     // Clear existing data
-    console.log('🗑️ Clearing existing data...');
+    console.log('ðŸ—‘ï¸ Clearing existing data...');
     await User.deleteMany({});
     await Movie.deleteMany({});
     await Booking.deleteMany({});
 
     // Seed users
-    console.log('👥 Seeding users...');
+    console.log('ðŸ‘¥ Seeding users...');
     const users = await User.insertMany(demoUsers);
     
     // Seed movies  
-    console.log('🎬 Seeding movies...');
+    console.log('ðŸŽ¬ Seeding movies...');
     const moviesCreated = await Movie.insertMany(movies);
 
-    console.log(`✅ Seeded ${users.length} users and ${moviesCreated.length} movies`);
+    console.log(`âœ… Seeded ${users.length} users and ${moviesCreated.length} movies`);
 
     res.json({
       success: true,
@@ -477,6 +474,63 @@ app.use('/api/auth', require('./routes/auth'));
 app.use('/api/movies', require('./routes/movies'));
 app.use('/api/bookings', require('./routes/bookings'));
 
+// Email notification health check
+app.get('/api/notifications/health', async (req, res) => {
+    try {
+        const notificationService = require('./services/notificationService');
+        const emailTest = await notificationService.testEmailConfiguration();
+        
+        res.json({
+            success: true,
+            message: 'Email notification service status',
+            service: {
+                email: {
+                    status: emailTest.success ? 'configured' : 'error',
+                    service: 'Gmail',
+                    from: process.env.EMAIL_FROM || 'sastimeena@gmail.com',
+                    error: emailTest.error || null
+                }
+            },
+            timestamp: new Date().toISOString()
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error checking email notification service',
+            error: error.message
+        });
+    }
+});
+
+// Send test email
+app.post('/api/notifications/test-email', async (req, res) => {
+    try {
+        const notificationService = require('./services/notificationService');
+        const { email } = req.body;
+        
+        const targetEmail = email || 'sastimeena@gmail.com';
+        const result = await notificationService.sendTestEmail(targetEmail);
+        
+        res.json({
+            success: result.success,
+            message: result.success ? 
+                'Test email sent successfully!' : 
+                'Failed to send test email',
+            details: {
+                to: targetEmail,
+                messageId: result.messageId || null,
+                error: result.error || null
+            }
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: 'Error sending test email',
+            error: error.message
+        });
+    }
+});
+
 // 404 Handler
 app.use('*', (req, res) => {
   res.status(404).json({
@@ -504,7 +558,7 @@ app.use((error, req, res, next) => {
 // MongoDB Connection
 const connectDB = async () => {
   try {
-    console.log('🔄 Attempting to connect to MongoDB...');
+    console.log('ðŸ”„ Attempting to connect to MongoDB...');
     
     const connectionOptions = {
       useNewUrlParser: true,
@@ -522,13 +576,13 @@ const connectDB = async () => {
 
     const conn = await mongoose.connect(mongoUri, connectionOptions);
 
-    console.log(`✅ Connected to MongoDB Atlas: ${conn.connection.host}`);
-    console.log(`📊 Database: ${conn.connection.name}`);
-    console.log('🎬 Cinema Booking Database ready');
+    console.log(`âœ… Connected to MongoDB Atlas: ${conn.connection.host}`);
+    console.log(`ðŸ“Š Database: ${conn.connection.name}`);
+    console.log('ðŸŽ¬ Cinema Booking Database ready');
     
   } catch (error) {
-    console.error('❌ Database connection error:', error.message);
-    console.log('⚠️ Server will continue running without database...');
+    console.error('âŒ Database connection error:', error.message);
+    console.log('âš ï¸ Server will continue running without database...');
     
     if (process.env.NODE_ENV !== 'production') {
       process.exit(1);
@@ -543,36 +597,36 @@ const startServer = async () => {
   await connectDB();
   
   app.listen(PORT, () => {
-    console.log('🎬 Cinema Booking API Server');
+    console.log('ðŸŽ¬ Cinema Booking API Server');
     console.log('=' + '='.repeat(29));
-    console.log(`🚀 Server running on port ${PORT}`);
-    console.log(`📡 API Base URL: http://localhost:${PORT}/api`);
-    console.log(`🔗 Health Check: http://localhost:${PORT}/api/health`);
-    console.log(`🌱 Seed Database: http://localhost:${PORT}/api/seed`);
-    console.log(`🔍 Debug Info: http://localhost:${PORT}/api/debug`);
+    console.log(`ðŸš€ Server running on port ${PORT}`);
+    console.log(`ðŸ“¡ API Base URL: http://localhost:${PORT}/api`);
+    console.log(`ðŸ”— Health Check: http://localhost:${PORT}/api/health`);
+    console.log(`ðŸŒ± Seed Database: http://localhost:${PORT}/api/seed`);
+    console.log(`ðŸ” Debug Info: http://localhost:${PORT}/api/debug`);
     console.log('');
-    console.log('🎯 Quick Test URLs:');
-    console.log(`• Root API: http://localhost:${PORT}/api`);
-    console.log(`• Movies: http://localhost:${PORT}/api/movies`);
-    console.log(`• Trending: http://localhost:${PORT}/api/movies/trending`);
+    console.log('ðŸŽ¯ Quick Test URLs:');
+    console.log(`â€¢ Root API: http://localhost:${PORT}/api`);
+    console.log(`â€¢ Movies: http://localhost:${PORT}/api/movies`);
+    console.log(`â€¢ Trending: http://localhost:${PORT}/api/movies/trending`);
     console.log('');
-    console.log('🔐 Demo Credentials:');
-    console.log('• Admin: admin@cinemabooking.com / admin123');
-    console.log('• User: john.doe@example.com / password123');
+    console.log('ðŸ” Demo Credentials:');
+    console.log('â€¢ Admin: admin@cinemabooking.com / admin123');
+    console.log('â€¢ User: john.doe@example.com / password123');
     console.log('');
-    console.log(`🌍 Environment: ${process.env.NODE_ENV || 'development'}`);
-    console.log(`🔒 Trust Proxy: ${app.get('trust proxy') ? 'Enabled' : 'Disabled'}`);
-    console.log(`⚡ Rate Limiting: Disabled for testing`);
-    console.log('✅ Server ready for requests!');
+    console.log(`ðŸŒ Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`ðŸ”’ Trust Proxy: ${app.get('trust proxy') ? 'Enabled' : 'Disabled'}`);
+    console.log(`âš¡ Rate Limiting: Disabled for testing`);
+    console.log('âœ… Server ready for requests!');
   });
 };
 
 // FIXED: Graceful shutdown handlers (no callback in mongoose.connection.close())
 process.on('SIGTERM', () => {
-  console.log('👋 SIGTERM received, shutting down gracefully');
+  console.log('ðŸ‘‹ SIGTERM received, shutting down gracefully');
   if (mongoose.connection.readyState === 1) {
     mongoose.connection.close().then(() => {
-      console.log('📊 Database connection closed');
+      console.log('ðŸ“Š Database connection closed');
       process.exit(0);
     }).catch((error) => {
       console.error('Error closing database connection:', error);
@@ -584,10 +638,10 @@ process.on('SIGTERM', () => {
 });
 
 process.on('SIGINT', () => {
-  console.log('👋 SIGINT received, shutting down gracefully');
+  console.log('ðŸ‘‹ SIGINT received, shutting down gracefully');
   if (mongoose.connection.readyState === 1) {
     mongoose.connection.close().then(() => {
-      console.log('📊 Database connection closed');
+      console.log('ðŸ“Š Database connection closed');
       process.exit(0);
     }).catch((error) => {
       console.error('Error closing database connection:', error);
