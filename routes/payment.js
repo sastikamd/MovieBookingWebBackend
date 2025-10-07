@@ -16,8 +16,8 @@ router.post('/create-checkout-session', auth, async (req, res) => {
     // Each seat forms one line item with unit_amount = seat.price in paise
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card', 'cashapp', 'link'],
       mode: 'payment',
+      automatic_payment_methods: { enabled: true },
       line_items: seats.map(seat => ({
         price_data: {
           currency: 'inr',
