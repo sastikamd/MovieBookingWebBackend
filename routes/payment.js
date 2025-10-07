@@ -1,58 +1,69 @@
 const express = require('express');
-const Stripe = require('stripe');
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2023-08-16' });
+const stripe = require('stripe')(process.env.STRIPE_SECRET_KEY);
+const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
-// Create Stripe Customer
-router.post('/customer', async (req, res) => {
-  const { email, firstname, lastname } = req.body;
+/**
+ * Route: POST /api/payments/create-checkout-session
+ * Creates a Stripe Checkout session (recommended for hosted checkout)
+ */
+router.post('/create-checkout-session', auth, async (req, res) => {
   try {
-    const customer = await stripe.customers.create({
-      email,
-      name: `${firstname} ${lastname}`,
-      metadata: { firstname, lastname },
+    const { movieId, seats, userId } = req.body;
+
+    // Calculate total amount here if you want or rely on price_data in line items
+    // Each seat forms one line item with unit_amount = seat.price in paise
+
+    const session = await stripe.checkout.sessions.create({
+      payment_method_types: ['card', 'cashapp', 'link'],
+      mode: 'payment',
+      line_items: seats.map(seat => ({
+        price_data: {
+          currency: 'inr',
+          product_data: {
+            name: `Seat ${seat.seatNumber} for movie ${movieId}`,
+          },
+          unit_amount: seat.price * 100, // Convert to paise
+        },
+        quantity: 1,
+      })),
+      metadata: {
+        userId: userId,
+        movieId: movieId,
+        seats: JSON.stringify(seats),
+      },
+      success_url: `${process.env.APP_URL}/booking-confirmation?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${process.env.APP_URL}/movies`,
     });
-    res.json({ success: true, customerId: customer.id });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+
+    res.json({ url: session.url });
+  } catch (error) {
+    console.error('Error creating Stripe checkout session:', error);
+    res.status(500).json({ error: error.message });
   }
 });
 
-// Create SetupIntent
-router.post('/setupintent', async (req, res) => {
+/**
+ * Optional Route: POST /api/payments/create-payment-intent
+ * Directly create payment intent (used in some custom payment flows)
+ */
+
+router.post('/create-payment-intent', auth, async (req, res) => {
   try {
-    const { customer } = req.body;
-    const options = {
-      payment_method_types: ['card', 'us_bank_account', 'cashapp', 'link'],
-    };
-    if (customer) options.customer = customer;
-
-    const setupIntent = await stripe.setupIntents.create(options);
-    res.json({ success: true, clientSecret: setupIntent.client_secret });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
-  }
-});
-
-// Create PaymentIntent
-router.post('/paymentintent', async (req, res) => {
-  try {
-    const { amount, currency = 'inr' } = req.body;
-    const parsedAmount = parseFloat(amount);
-    if (isNaN(parsedAmount) || parsedAmount <= 0) {
-      return res.status(400).json({ success: false, error: 'Invalid amount' });
-    }
-
+    const { amount } = req.body;
     const paymentIntent = await stripe.paymentIntents.create({
-      amount: Math.round(parsedAmount * 100), // Rupees to paise
-      currency,
-      automatic_payment_methods: { enabled: true },
+      amount: Math.round(amount * 100), // Rupees to paise
+      currency: 'inr',
+      metadata: {
+        userId: req.user.id,
+      },
     });
-    res.json({ success: true, clientSecret: paymentIntent.client_secret });
-  } catch (err) {
-    res.status(500).json({ success: false, error: err.message });
+    res.json({ clientSecret: paymentIntent.client_secret });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
   }
 });
 
 module.exports = router;
+
