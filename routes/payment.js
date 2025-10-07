@@ -4,13 +4,17 @@ const { auth } = require('../middleware/auth');
 
 const router = express.Router();
 
+/**
+ * Route: POST /api/payments/create-checkout-session
+ * Creates a Stripe Checkout session (recommended for hosted checkout)
+ */
 router.post('/create-checkout-session', auth, async (req, res) => {
   try {
     const { movieId, seats, userId } = req.body;
 
-    // You may want to calculate total amount or get info from DB
-    // For example, calculate price from seats here or on frontend
-    
+    // Calculate total amount here if you want or rely on price_data in line items
+    // Each seat forms one line item with unit_amount = seat.price in paise
+
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
       mode: 'payment',
@@ -20,11 +24,10 @@ router.post('/create-checkout-session', auth, async (req, res) => {
           product_data: {
             name: `Seat ${seat.seatNumber} for movie ${movieId}`,
           },
-          unit_amount: seat.price * 100, // converting rupees to paise
+          unit_amount: seat.price * 100, // Convert to paise
         },
         quantity: 1,
       })),
-      // Pass metadata for booking creation later
       metadata: {
         userId: userId,
         movieId: movieId,
@@ -37,6 +40,26 @@ router.post('/create-checkout-session', auth, async (req, res) => {
     res.json({ url: session.url });
   } catch (error) {
     console.error('Error creating Stripe checkout session:', error);
+    res.status(500).json({ error: error.message });
+  }
+});
+
+/**
+ * Optional Route: POST /api/payments/create-payment-intent
+ * Directly create payment intent (used in some custom payment flows)
+ */
+router.post('/create-payment-intent', auth, async (req, res) => {
+  try {
+    const { amount } = req.body;
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: Math.round(amount * 100), // Rupees to paise
+      currency: 'inr',
+      metadata: {
+        userId: req.user.id,
+      },
+    });
+    res.json({ clientSecret: paymentIntent.client_secret });
+  } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
