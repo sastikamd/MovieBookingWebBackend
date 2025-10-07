@@ -12,8 +12,10 @@ class NotificationService {
       <html>
         <body>
           <h1>Booking Confirmed - ${movie.title}</h1>
+          <p>Thankyou for booking with Sastika'smovies.com</p>
           <p>Booking ID: ${booking.bookingId}</p>
-          <p>Customer: ${user.name}</p>
+          <p>Show Date: ${booking.showDate}</p>
+          <p>Show Time: ${booking.showTime}</p>
           <p>Seats: ${booking.seats.map(s => s.seatNumber).join(', ')}</p>
           <p>Amount Paid: ₹${booking.totalAmount}</p>
         </body>
