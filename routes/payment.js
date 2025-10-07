@@ -17,7 +17,6 @@ router.post('/create-checkout-session', auth, async (req, res) => {
 
     const session = await stripe.checkout.sessions.create({
       mode: 'payment',
-      automatic_payment_methods: { enabled: true },
       line_items: seats.map(seat => ({
         price_data: {
           currency: 'inr',
