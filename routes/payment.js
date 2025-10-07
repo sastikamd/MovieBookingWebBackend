@@ -16,7 +16,7 @@ router.post('/create-checkout-session', auth, async (req, res) => {
     // Each seat forms one line item with unit_amount = seat.price in paise
 
     const session = await stripe.checkout.sessions.create({
-      payment_method_types: ['card'],
+      payment_method_types: ['card', 'cashapp', 'link'],
       mode: 'payment',
       line_items: seats.map(seat => ({
         price_data: {
@@ -48,6 +48,7 @@ router.post('/create-checkout-session', auth, async (req, res) => {
  * Optional Route: POST /api/payments/create-payment-intent
  * Directly create payment intent (used in some custom payment flows)
  */
+
 router.post('/create-payment-intent', auth, async (req, res) => {
   try {
     const { amount } = req.body;
