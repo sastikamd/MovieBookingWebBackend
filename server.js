@@ -475,6 +475,7 @@ app.use('/api/movies', require('./routes/movies'));
 app.use('/api/bookings', require('./routes/bookings'));
 app.use('/api/payments', require('./routes/payment'));
 app.use('/api/webhook', require('./routes/webhook'));
+app.use('/api/shows', require('./routes/shows'));
 
 // Email notification health check
 app.get('/api/notifications/health', async (req, res) => {
